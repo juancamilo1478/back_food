@@ -6,15 +6,19 @@ const {
   DB_USER, DB_PASSWORD, DB_HOST,DB_DEPLOY,
 } = process.env;
 
-// const sequelize = new Sequelize(`postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}/food`, {
-//   logging: false, // set to console.log to see the raw SQL queries
-//   native: false, // lets Sequelize know we can use pg-native for ~30% more speed
-// });
 
-const sequelize = new Sequelize(DB_DEPLOY, {
+
+// local
+const sequelize = new Sequelize(`postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}/food`, {
   logging: false, // set to console.log to see the raw SQL queries
   native: false, // lets Sequelize know we can use pg-native for ~30% more speed
 });
+//server
+
+// const sequelize = new Sequelize(DB_DEPLOY, {
+//   logging: false, // set to console.log to see the raw SQL queries
+//   native: false, // lets Sequelize know we can use pg-native for ~30% more speed
+// });
 
 
 
@@ -42,8 +46,8 @@ sequelize.models = Object.fromEntries(capsEntries);
 // Para relacionarlos hacemos un destructuring
 const { Recipes,Diets } = sequelize.models;
 
-Recipes.belongsToMany(Diets,{through:"recipes_diets"},{ timestamps: false});
-Diets.belongsToMany(Recipes,{through:"recipes_diets"},{ timestamps: false});  
+Recipes.belongsToMany(Diets, { through: "recipes_diets", timestamps: false });
+Diets.belongsToMany(Recipes, { through: "recipes_diets", timestamps: false });
 
 
 

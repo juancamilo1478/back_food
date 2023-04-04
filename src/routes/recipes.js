@@ -1,23 +1,46 @@
 const { Router } = require('express');
-
 const router = Router();
 const axios = require("axios");
+const path=require('path')
 require('dotenv').config();
+//Api key
 const {API_KEY}= process.env;
-// Importar todos los routers;
-// const {getcharacterRecipe}=require('../controller/characterRecipe'
+//models 
 const {Recipes,Diets}=require('../db')
-
+//secualize search whith name database
 const { Op } = require('sequelize');
-// Ejemplo: const authRouter = require('./auth.js');
-//importar los modelos ya definidos 
- //// dietas 
+
+
+// create cartds if base.length ===0 or response data whith diets 
 router.get('/cards',async(req,res)=>{
-    try {
-        const datos=await axios(`https://api.spoonacular.com/recipes/complexSearch?apiKey=${API_KEY}&addRecipeInformation=true&number=100`)
+try {
+     const base=await Recipes.findAll()
+        if(base.length===0)
+        {
+              const datos=await axios(`https://api.spoonacular.com/recipes/complexSearch?apiKey=${API_KEY}&addRecipeInformation=true&number=50`)
+          //CREATE 50 RECIPES AND RELATION DIETS
 
         
-      let total=datos.data.results.map(data=>{
+        await Promise.all( datos.data.results.map(async data => {
+         const recipeactual = await Recipes.create({
+          name: data.title,
+          level: data.healthScore,
+          image: data.image,
+          resumen: data.summary,
+          pasos: data.analyzedInstructions
+        });
+
+         data.diets.forEach(async data=>{
+         const dieta =await Diets.findOne({
+            where:{
+                name:data
+         }
+        })
+     recipeactual.addDiets([dieta])
+        })
+        }))
+
+       let total=datos.data.results.map(data=>{
        return{
         id:data.id,
         name:data.title,
@@ -26,112 +49,39 @@ router.get('/cards',async(req,res)=>{
         diets:data.diets
        }
       })
-      let db=await  Recipes.findAll() 
+      res.status(200).json(total)
+             }else{
+//
+const newresponse=[];
+await Promise.all(base.map(async (data)=>{
 
-/// get diets and diets
-//// data db
-let newdata=[];
-if(db.length>0)
-{
-  for(var i=0;i< db.length;i++)
-  {
-     let data=await Recipes.findByPk(db[i].id).then(recip=>{
-             return recip.getDiets().then(recipes=>{
-                 return recipes
-             })
-     })
-     let dietas=data.map(data=>{
-         return data.name
-     })
-     const element={
-        ...db[i].toJSON(),
-        diets:dietas
-     }
-     newdata.push(element)
-  }
+let dato=await Recipes.findByPk(data.id).then(recip=>{
+return recip.getDiets().then(recipes=>{
+    return recipes
+})
+})
+let dietas=dato.map(data=>{
+    return data.name
+})
+
+newresponse.push({ ...data.toJSON(),
+        diets:dietas})
+}))
+res.json(newresponse)
+
+
+
+
+
+
+
+
+             }
+} catch (error) {
+    res.status(400).json({error:error.message})
 }
-
-
-
-
-
-
-    //    [...total,...db]
-        res.status(200).json([...total,...newdata])
-    } catch (error) {
-        res.status(400).json({error:error.message})
-    }
 })
-
-
-
-// array diets forever
-router.get('/diets',async(req,res)=>{
-    try {
-    let table=await Diets.findAll(  )
-    if(table.length>0)
-    {
-        table=table.map(data=>{
-            return data.name
-        })
-    }
-   
-
-    if(table.length===0)
-    {
-    const namediets=await axios(`https://api.spoonacular.com/recipes/complexSearch?apiKey=${API_KEY}&addRecipeInformation=true&number=100`)
-    const total=namediets.data.results.map(data=>{
-        return data.diets;
-    })
-    let names=[];
-    total.forEach(data=>{
-        data.forEach(datainter=>{
-            if(!names.includes(datainter))
-            {
-                names.push(datainter)
-            }
-        })
-    })
-    for(var i=0; i<names.length;i++)
-    {
-        await Diets.create({
-            name:names[i]
-        })
-    }
-    return res.status(200).json(names)
-    }
-    
-   return res.status(200).json(table)
-    } catch (error) {
-        res.status(400).json({error:error.message})
-    }
-})
-
-//search diets for id
-router.get('/diets/:id',async(req,res)=>{
-    try {
-        const {id}=req.params
-        // const data=await Diets.findOne({
-        //     where:{
-        //         name:name
-        //     }
-        // })
-       const data=await Recipes.findByPk(id).then(recip=>{
-            return recip.getDiets().then(recipes=>{
-                return recipes
-            })
-        })
-        res.json(data)
-   
-
-    } catch (error) {
-        res.status(400).json({error:error.message})
-    }
-
-})
-
 // Configurar los routers
-// Ejemplo: router.use('/auth', authRouter);
 router.get('/recipes/:id',async(req,res)=>{
     try {
     const {id}=req.params;
@@ -142,7 +92,28 @@ router.get('/recipes/:id',async(req,res)=>{
                 id
             }
         })
-        return res.status(200).json(findbase[0])
+        const newresponse=[];
+await Promise.all(findbase.map(async (data)=>{
+
+let dato=await Recipes.findByPk(data.id).then(recip=>{
+return recip.getDiets().then(recipes=>{
+    return recipes
+})
+})
+let dietas=dato.map(data=>{
+    return data.name
+})
+
+newresponse.push({ ...data.toJSON(),
+        diets:dietas})
+}))
+        
+return res.status(200).json(newresponse[0])
+
+
+
+
+
        }
        else
      {
@@ -154,7 +125,7 @@ router.get('/recipes/:id',async(req,res)=>{
             image:recipe.data.image,
             resumen:recipe.data.instructions,
             level:recipe.data.healthScore,
-            pasos:recipe.data.analyzedInstructions[0].steps,
+            pasos:recipe.data.analyzedInstructions,
             diets:recipe.data.diets
         }
             return res.json(datos)
@@ -167,8 +138,7 @@ router.get('/recipes/:id',async(req,res)=>{
         res.status(400).json({error:error.message})
     }
 })
-
-//recipes name server and api
+//recipes search in api and database
 router.get('/recipes',async(req,res)=>{
     // addRecipeInformation=true
     try {
@@ -226,7 +196,7 @@ let filtrado=datas.data.results.map(data=>{
 
 
 })
-
+//create recipe
 router.post('/recipes',async(req,res)=>{
     try {
  

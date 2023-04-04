@@ -20,7 +20,7 @@ module.exports = (sequelize) => {
       allowNull: false,
     },
     resumen:{
-      type: DataTypes.STRING,
+      type: DataTypes.JSON,
       allowNull: false,
     },
     level:{
